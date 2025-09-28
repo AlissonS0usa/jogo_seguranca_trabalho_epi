@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Corrida do EPI</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #game {
+      position: relative;
+      width: 400px;
+      height: 600px;
+      background: linear-gradient(#1e293b, #0f172a);
+      overflow: hidden;
+      border: 2px solid #334155;
+      border-radius: 10px;
+    }
+    .player {
+      position: absolute;
+      bottom: 70px;
+      left: 150px;
+      width: 50px;
+      height: 50px;
+      background: #10b981;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .item {
+      position: absolute;
+      top: -50px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .good { background: #3b82f6; }
+    .bad { background: #ef4444; }
+    #score, #timer, #badCount {
+      position: absolute;
+      top: 10px;
+      font-size: 18px;
+    }
+    #score { left: 10px; }
+    #badCount { left: 150px; }
+    #timer { right: 10px; }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+      z-index: 10;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      background: #10b981;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 40px;
+      z-index: 5;
+    }
+    #controls button {
+      width: 80px;
+      height: 60px;
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="player" class="player">👷‍♂️</div>
+    <div id="score">EPIs: 0</div>
+    <div id="badCount">Itens Ruins: 0</div>
+    <div id="timer">Tempo: 30</div>
+    <div id="gameOver">
+      <h2 id="resultTitle">🏆 Fim de Jogo!</h2>
+      <p id="finalScore"></p>
+      <button onclick="startGame()">Jogar de Novo</button>
+    </div>
+    <div id="controls">
+      <button onclick="moveLeft()">⬅️</button>
+      <button onclick="moveRight()">➡️</button>
+    </div>
+  </div>
+
+  <script>
+    const game = document.getElementById("game");
+    const player = document.getElementById("player");
+    const scoreEl = document.getElementById("score");
+    const badCountEl = document.getElementById("badCount");
+    const timerEl = document.getElementById("timer");
+    const gameOverEl = document.getElementById("gameOver");
+    const finalScoreEl = document.getElementById("finalScore");
+    const resultTitle = document.getElementById("resultTitle");
+
+    let score = 0;
+    let badCount = 0;
+    let playerX = 150;
+    let gameInterval;
+    let timerInterval;
+    let timeLeft = 30;
+    let items = [];
+
+    const lanes = [70, 170, 270];
+    let currentLane = 1;
+
+    const goodIcons = ["⛑️", "🥽", "🥾", "🦺", "👷‍♂️", "🧤"];
+    const badIcons = ["📱", "🍔", "🎧"];
+
+    function moveLeft() {
+      currentLane = Math.max(0, currentLane - 1);
+      playerX = lanes[currentLane];
+      player.style.left = playerX + "px";
+    }
+
+    function moveRight() {
+      currentLane = Math.min(lanes.length - 1, currentLane + 1);
+      playerX = lanes[currentLane];
+      player.style.left = playerX + "px";
+    }
+
+    function movePlayer(e) {
+      if (e.key === "ArrowLeft") moveLeft();
+      else if (e.key === "ArrowRight") moveRight();
+    }
+
+    function createItem() {
+      const item = document.createElement("div");
+      const isGood = Math.random() > 0.4;
+      item.className = "item " + (isGood ? "good" : "bad");
+      item.textContent = isGood ? goodIcons[Math.floor(Math.random()*goodIcons.length)] : badIcons[Math.floor(Math.random()*badIcons.length)];
+      item.style.left = lanes[Math.floor(Math.random() * lanes.length)] + "px";
+      game.appendChild(item);
+      items.push({ el: item, good: isGood, y: -40 });
+    }
+
+    function updateItems() {
+      items.forEach((item, index) => {
+        item.y += 5;
+        item.el.style.top = item.y + "px";
+
+        if (item.y > 600) {
+          game.removeChild(item.el);
+          items.splice(index, 1);
+        }
+
+        const playerRect = player.getBoundingClientRect();
+        const itemRect = item.el.getBoundingClientRect();
+        if (
+          playerRect.left < itemRect.right &&
+          playerRect.right > itemRect.left &&
+          playerRect.top < itemRect.bottom &&
+          playerRect.bottom > itemRect.top
+        ) {
+          if (item.good) {
+            score++;
+            scoreEl.textContent = "EPIs: " + score;
+            if (score >= 8) {
+              endGame(true);
+            }
+          } else {
+            badCount++;
+            badCountEl.textContent = "Itens Ruins: " + badCount;
+            if (badCount >= 4) {
+              endGame(false);
+            }
+          }
+          game.removeChild(item.el);
+          items.splice(index, 1);
+        }
+      });
+    }
+
+    function gameLoop() {
+      if (Math.random() < 0.05) createItem();
+      updateItems();
+    }
+
+    function startGame() {
+      score = 0;
+      badCount = 0;
+      currentLane = 1;
+      playerX = lanes[currentLane];
+      timeLeft = 30;
+      items.forEach(i => game.removeChild(i.el));
+      items = [];
+      scoreEl.textContent = "EPIs: 0";
+      badCountEl.textContent = "Itens Ruins: 0";
+      timerEl.textContent = "Tempo: 30";
+      player.style.left = playerX + "px";
+      gameOverEl.style.display = "none";
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      gameInterval = setInterval(gameLoop, 50);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = "Tempo: " + timeLeft;
+        if (timeLeft <= 0) {
+          if (score >= 8) {
+            endGame(true);
+          } else {
+            endGame(false);
+          }
+        }
+      }, 1000);
+    }
+
+    function endGame(win) {
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      if (win) {
+        resultTitle.textContent = "🏆 Você Venceu!";
+        finalScoreEl.textContent = "Você coletou " + score + " EPIs!";
+      } else {
+        resultTitle.textContent = "❌ Você Perdeu!";
+        finalScoreEl.textContent = "EPIs coletados: " + score + " | Itens ruins: " + badCount;
+      }
+      gameOverEl.style.display = "block";
+    }
+
+    window.addEventListener("keydown", movePlayer);
+    startGame();
+  </script>
+</body>
+</html>
